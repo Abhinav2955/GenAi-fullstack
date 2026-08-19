@@ -7,27 +7,34 @@ main{
 
     .form-container{
         min-width: 350px;
+         
         display: flex;
         flex-direction: column;
         gap: 1rem;
 
     }
+    form{
+            display: flex;
+            flex-direction: column;
+            gap:0.75rem;
+        }  
     .input-group{
         display: flex;
         flex-direction: column;
         
         gap:0.5rem;
 
-        .form{
-            display: flex;
-            flex-direction: column;
-            gap:0.75rem;
-        }        
+             
         input{
            border:none;
            outline:none;
-           padding-inline: 0.75rem;
+           padding-inline: 1rem;
+           padding-block: 0.75rem;
            border-radius: 0.75rem;
         }
+    }
+    a{
+        color:#e1034d;
+        text-decoration: underline;
     }
 }

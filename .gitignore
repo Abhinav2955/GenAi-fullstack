@@ -17,7 +17,7 @@ eslint.config.*
 *.config.js
 *.config.ts
 *.config.mjs
-README.md
+
 .prettierrc*
 
 # Production & Build Outputs
