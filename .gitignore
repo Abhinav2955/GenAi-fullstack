@@ -5,11 +5,20 @@ node_modules/
 
 # Environment Variables & Secrets
 .env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+
+# Project Configs, Lockfiles & Readmes
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+vite.config.*
+eslint.config.*
+*.config.js
+*.config.ts
+*.config.mjs
+README.md
+.prettierrc*
 
 # Production & Build Outputs
 dist/
@@ -23,6 +32,7 @@ out/
 .vite/
 .eslintcache
 .node_repl_history
+*.tmp
 
 # Logs
 logs
@@ -38,8 +48,7 @@ coverage/
 .nyc_output/
 
 # Editor & IDE Settings
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea/
 *.suo
 *.ntvs*
