@@ -24,7 +24,7 @@ const authRouter=Router()
  *@description CLEAR the token from the cookie and add it to the blacklist
  *@access public
  */ 
-authRouter.get("/logout",authController.logoutUserController)
+authRouter.post("/logout",authController.logoutUserController)
 
 /**
  *@routes GET /api/auth/get-me

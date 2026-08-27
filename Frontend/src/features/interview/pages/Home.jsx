@@ -8,13 +8,38 @@ const Home = () => {
     const { loading, generateReport, reports } = useInterview()
     const [jobDescription, setJobDescription] = useState("")
     const [selfDescription, setSelfDescription] = useState("")
+    const [selectedFileName, setSelectedFileName] = useState("")
+    const [errorMessage, setErrorMessage] = useState("")
     const resumeInputRef = useRef()
 
     const navigate = useNavigate()
 
+    const handleFileChange = (e) => {
+        const file = e.target.files[0]
+        setSelectedFileName(file ? file.name : "")
+    }
+
     const handleGenerateReport = async () => {
+        setErrorMessage("")
+
         const resumeFile = resumeInputRef.current.files[0]
+
+        if (!resumeFile && !selfDescription.trim()) {
+            setErrorMessage("Please upload a resume or provide a self-description.")
+            return
+        }
+        if (!jobDescription.trim()) {
+            setErrorMessage("Job description is required.")
+            return
+        }
+
         const data = await generateReport({ jobDescription, selfDescription, resumeFile })
+
+        if (!data || !data._id) {
+            setErrorMessage("Something went wrong while generating your report. Please try again.")
+            return
+        }
+
         navigate(`/interview/${data._id}`)
     }
 
@@ -52,9 +77,9 @@ const Home = () => {
                             onChange={(e) => { setJobDescription(e.target.value) }}
                             className='panel__textarea'
                             placeholder={`Paste the full job description here...\ne.g. 'Senior Frontend Engineer at Google requires proficiency in React, TypeScript, and large-scale system design...'`}
-                            maxLength={5000}
+                            maxLength={6000}
                         />
-                        <div className='char-counter'>0 / 5000 chars</div>
+                        <div className='char-counter'>{jobDescription.length} / 6000 chars</div>
                     </div>
 
                     {/* Vertical Divider */}
@@ -79,9 +104,26 @@ const Home = () => {
                                 <span className='dropzone__icon'>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" /></svg>
                                 </span>
-                                <p className='dropzone__title'>Click to upload or drag &amp; drop</p>
-                                <p className='dropzone__subtitle'>PDF or DOCX (Max 5MB)</p>
-                                <input ref={resumeInputRef} hidden type='file' id='resume' name='resume' accept='.pdf,.docx' />
+                                {selectedFileName ? (
+                                    <>
+                                        <p className='dropzone__title'>{selectedFileName}</p>
+                                        <p className='dropzone__subtitle'>Click to change file</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className='dropzone__title'>Click to upload or drag &amp; drop</p>
+                                        <p className='dropzone__subtitle'>PDF or DOCX (Max 5MB)</p>
+                                    </>
+                                )}
+                                <input
+                                    ref={resumeInputRef}
+                                    onChange={handleFileChange}
+                                    hidden
+                                    type='file'
+                                    id='resume'
+                                    name='resume'
+                                    accept='.pdf,.docx'
+                                />
                             </label>
                         </div>
 
@@ -109,6 +151,13 @@ const Home = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Error Message */}
+                {errorMessage && (
+                    <div className='error-message' style={{ color: '#d33', padding: '0 24px', marginTop: '-8px' }}>
+                        {errorMessage}
+                    </div>
+                )}
 
                 {/* Card Footer */}
                 <div className='interview-card__footer'>

@@ -46,12 +46,16 @@ async function registerUserController(req,res){
  */
 async function loginUserController(req,res){
     const {email,password}=req.body
+    console.log("LOGIN ATTEMPT:", { email, password })
+    
     const user=await userModel.findOne({email})
-
+    console.log("USER FOUND:", user)
     if(!user){
         return res.status(400).json({message:"Invalid email or password"})
     }
     const isPasswordValid=await bcrypt.compare(password,user.password)
+    console.log("PASSWORD VALID:", isPasswordValid)
+    
     if(!isPasswordValid){
         return res.status(400).json({message:"Invalid email or password"})
     }
@@ -88,15 +92,19 @@ async function logoutUserController(req,res){
  * @access private
  */
 async function getMeController(req,res){
-    const user=await userModel.findById(req.user.id)
-    res.status(200).json({
-        message:"User details fetched successfully",
-        user:{
-            id:user._id,
-            username:user.username,
-            email:user.email
+    try {
+        const user = await userModel.findById(req.user.id)
+        if (!user) {
+            return res.status(404).json({message: "User not found"})
         }
-    })
+        res.status(200).json({
+            message: "User details fetched successfully",
+            user: { id: user._id, username: user.username, email: user.email }
+        })
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({message: "Internal server error"})
+    }
 }
 
 
