@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import "../style/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
 import { useNavigate } from 'react-router'
+import LoadingScreen from '../components/LoadingScreen.jsx'
 
-const LOADING_STEPS = [
+const REPORT_LOADING_STEPS = [
     "Reading your resume...",
     "Analyzing job requirements...",
     "Matching your skills to the role...",
@@ -11,49 +12,6 @@ const LOADING_STEPS = [
     "Crafting technical questions...",
     "Building your preparation plan...",
 ]
-
-const LoadingScreen = () => {
-    const [stepIndex, setStepIndex] = useState(0)
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setStepIndex((prev) => (prev < LOADING_STEPS.length - 1 ? prev + 1 : prev))
-        }, 2200)
-        return () => clearInterval(interval)
-    }, [])
-
-    const progressPercent = ((stepIndex + 1) / LOADING_STEPS.length) * 100
-
-    return (
-        <main className='loading-screen'>
-            <div className='loading-card'>
-                <div className='loading-spinner'>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
-                    </svg>
-                </div>
-
-                <h1 className='loading-title'>Building Your Interview Strategy</h1>
-                <p className='loading-step'>{LOADING_STEPS[stepIndex]}</p>
-
-                <div className='loading-progress'>
-                    <div className='loading-progress__bar' style={{ width: `${progressPercent}%` }} />
-                </div>
-
-                <ul className='loading-checklist'>
-                    {LOADING_STEPS.map((step, i) => (
-                        <li key={step} className={i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}>
-                            <span className='loading-checklist__dot' />
-                            {step}
-                        </li>
-                    ))}
-                </ul>
-
-                <p className='loading-footnote'>This usually takes about 30 seconds. Please don't close this tab.</p>
-            </div>
-        </main>
-    )
-}
 
 const Home = () => {
 
@@ -96,7 +54,7 @@ const Home = () => {
     }
 
     if (loading) {
-        return <LoadingScreen />
+        return <LoadingScreen steps={REPORT_LOADING_STEPS} title="Building Your Interview Strategy" />
     }
 
     return (

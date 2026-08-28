@@ -1,4 +1,4 @@
-const pdfParse = require("pdf-parse")
+const { extractResumeText } = require("../services/pdfExtraction.service")
 const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
@@ -10,12 +10,22 @@ const interviewReportModel = require("../models/interviewReport.model")
  */
 async function generateInterViewReportController(req, res) {
 
-    const resumeContent = await (new pdfParse.PDFParse(Uint8Array.from(req.file.buffer))).getText()
-    console.log("EXTRACTED RESUME TEXT:", resumeContent.text)   // DEBUG LOG
+    let extraction
+    try {
+        extraction = await extractResumeText(req.file.buffer)
+    } catch (err) {
+        console.error("Resume extraction failed:", err.message)
+        return res.status(400).json({
+            message: err.message
+        })
+    }
+
+    console.log(`EXTRACTED RESUME TEXT (via ${extraction.method}, length ${extraction.text.length}):`, extraction.text)   // DEBUG LOG
+
     const { selfDescription, jobDescription } = req.body
 
     const interViewReportByAi = await generateInterviewReport({
-        resume: resumeContent.text,
+        resume: extraction.text,
         selfDescription,
         jobDescription
     })
@@ -24,7 +34,7 @@ async function generateInterViewReportController(req, res) {
 
     const interviewReport = await interviewReportModel.create({
         user: req.user.id,
-        resume: resumeContent.text,
+        resume: extraction.text,
         selfDescription,
         jobDescription,
         ...interViewReportByAi
