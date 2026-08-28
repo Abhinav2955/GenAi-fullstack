@@ -13,6 +13,7 @@ $badge-required: #ff2d78;
 $badge-best:     #ff2d78;
 $info-bg:        #1b2a4a;
 $info-border:    #2d4a7a;
+$success:        #2ecc71;
 $font-stack:     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
 // ── Page Shell ───────────────────────────────────────────────────────────────
@@ -296,6 +297,17 @@ $font-stack:     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Robot
     }
 }
 
+// ── Error Message ─────────────────────────────────────────────────────────────
+.error-message {
+    margin: 0 1.5rem;
+    padding: 0.65rem 1rem;
+    background-color: rgba(#ff4d4d, 0.1);
+    border: 1px solid rgba(#ff4d4d, 0.3);
+    border-radius: 0.5rem;
+    color: #ff6b6b;
+    font-size: 0.85rem;
+}
+
 // ── Generate Button ───────────────────────────────────────────────────────────
 .generate-btn {
     display: flex;
@@ -371,4 +383,133 @@ $font-stack:     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Robot
             color: $text-primary;
         }
     }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ── Loading Screen ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+
+.loading-screen {
+    width: 100%;
+    min-height: 100vh;
+    background-color: $bg-page;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.loading-card {
+    width: 100%;
+    max-width: 440px;
+    background-color: $bg-card;
+    border: 1px solid $border-color;
+    border-radius: 1rem;
+    padding: 2.5rem 2rem;
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, $accent 0%, color.adjust($accent, $lightness: -12%) 100%);
+    color: #fff;
+    animation: pulse-spin 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-spin {
+    0%   { transform: scale(1) rotate(0deg);      box-shadow: 0 0 0 0 rgba($accent, 0.4); }
+    50%  { transform: scale(1.08) rotate(180deg); box-shadow: 0 0 0 12px rgba($accent, 0); }
+    100% { transform: scale(1) rotate(360deg);    box-shadow: 0 0 0 0 rgba($accent, 0); }
+}
+
+.loading-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    color: $text-primary;
+    font-family: $font-stack;
+}
+
+.loading-step {
+    font-size: 0.9rem;
+    color: $accent-alt;
+    font-weight: 500;
+    margin: 0 0 1.5rem;
+    min-height: 20px;
+    transition: opacity 0.3s ease;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 7px;
+    background-color: $bg-input;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.loading-progress__bar {
+    height: 100%;
+    background: linear-gradient(90deg, $accent, $accent-alt);
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+
+.loading-checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+
+    li {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.85rem;
+        color: $text-muted;
+        transition: color 0.3s ease;
+
+        &.active {
+            color: $text-primary;
+            font-weight: 600;
+        }
+
+        &.done {
+            color: $success;
+        }
+    }
+}
+
+.loading-checklist__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: $border-color;
+    flex-shrink: 0;
+    transition: background-color 0.3s ease;
+}
+
+.loading-checklist li.active .loading-checklist__dot {
+    background-color: $accent;
+    box-shadow: 0 0 0 4px rgba($accent, 0.18);
+}
+
+.loading-checklist li.done .loading-checklist__dot {
+    background-color: $success;
+}
+
+.loading-footnote {
+    font-size: 0.75rem;
+    color: $text-muted;
+    margin: 0;
 }
