@@ -158,7 +158,7 @@ GenAi-fullstack/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/GenAi-fullstack.git
+git clone https://github.com/Abhinav2955/GenAi-fullstack.git
 cd GenAi-fullstack
 ```
 
