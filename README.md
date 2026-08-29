@@ -1,6 +1,6 @@
 # AI Interview & Resume Strategist
 
-An AI-powered full-stack platform that analyzes a candidate's resume against a target job description and generates a complete, personalized interview preparation strategy — technical & behavioral questions, skill-gap analysis, a day-wise preparation plan, and an ATS-optimized, AI-rewritten resume — all in one flow.
+An AI-powered full-stack platform that analyzes a candidate's resume against a target job description and generates a complete, personalized interview preparation strategy — technical & behavioral questions, skill-gap analysis, a day-wise preparation plan, and a **tailored** (not regenerated) ATS-optimized resume — all in one flow.
 
 Built on the **MERN stack**, secured with **JWT authentication**, and powered by **Google Gemini** for structured, schema-validated AI generation.
 
@@ -17,7 +17,7 @@ Built on the **MERN stack**, secured with **JWT authentication**, and powered by
 - [API Reference](#api-reference)
 - [How It Works](#how-it-works)
 - [Roadmap](#roadmap)
-- [License](#license)
+
 
 ---
 
@@ -29,29 +29,36 @@ Built on the **MERN stack**, secured with **JWT authentication**, and powered by
 - Token blacklisting on logout to invalidate active sessions
 - Protected routes with auth middleware guarding private endpoints
 
-### 📄 Resume & Interview Intelligence
-- Upload a resume (PDF) and paste a target job description
-- AI extracts and parses resume content server-side (`pdf-parse`)
-- Generates a structured **Interview Report** including:
+### 📄 Resilient Resume Parsing
+- Upload any resume PDF — text-based, scanned, or design-tool exports
+- **Two-stage extraction pipeline**:
+  1. Fast direct text extraction for normal text-based PDFs
+  2. Automatic **OCR fallback** for scanned/image-based PDFs or resumes where text was embedded as vector shapes — no user action required
+- Clear, user-facing error if a file genuinely contains no readable content, instead of silently producing a broken report
+
+### 🧠 Interview Intelligence
+- Paste a target job description alongside the resume (or a quick self-description if no resume is available)
+- Generates a structured **Interview Report**, schema-validated against the resume content:
   - **Match Score** — how well the candidate's profile fits the role
   - **Technical Questions** — with interviewer intention & model answers
   - **Behavioral Questions** — with interviewer intention & model answers
   - **Skill Gap Analysis** — missing skills ranked by severity
   - **Day-wise Preparation Plan** — a structured study roadmap
-- All AI output is schema-validated (structured JSON generation) and persisted to MongoDB per user
+- All reports are persisted to MongoDB per user
 
-### 📑 AI Resume Rewriting
-- Generates a tailored, ATS-friendly resume as a polished PDF (via **Puppeteer** HTML-to-PDF rendering)
-- Rewrites content to align with the specific job description while preserving the candidate's real details
+### 📑 Resume Tailoring (edits, doesn't reinvent)
+- The AI **edits the candidate's real resume** rather than generating a fictional one from scratch
+- Real name, contact details, education, work experience, achievements, and certifications are preserved exactly — only wording, ordering, and relevance are adjusted for the target job
+- Output follows a structured markdown template with optional redaction directives, then rendered to a polished, ATS-friendly PDF
 
 ### 📚 Report History
 - View all previously generated interview reports
-- Revisit any past report or regenerate a resume PDF from it
+- Revisit any past report or regenerate its tailored resume PDF
 
 ### 🎨 Polished UX
 - Dark-themed, responsive UI
-- Real-time drag-and-drop resume upload with file feedback
-- Animated multi-step loading experience during AI generation (progress bar + live status checklist)
+- Real-time drag-and-drop resume upload with file-selection feedback
+- Reusable animated multi-step loading screen (progress bar + live status checklist) used consistently across report generation and resume PDF generation — no blank screens during AI processing
 - Clear inline validation and error handling throughout
 
 ---
@@ -71,8 +78,10 @@ Built on the **MERN stack**, secured with **JWT authentication**, and powered by
 - `cookie-parser`, `cors`
 
 **AI & Documents**
-- Google Gemini (`@google/genai`) — structured JSON generation via response schemas
-- `pdf-parse` — resume text extraction
+- Google Gemini (`@google/genai`) — structured JSON generation via response schemas (interview report) and instruction-following markdown generation (resume tailoring)
+- `pdf-parse` — fast direct text extraction (first pass)
+- `pdf-to-img` + `tesseract.js` — OCR fallback for scanned/image-based resumes
+- `marked` — converts the AI's tailored-resume markdown into HTML
 - `puppeteer` — HTML-to-PDF rendering for generated resumes
 
 ---
@@ -85,12 +94,12 @@ Built on the **MERN stack**, secured with **JWT authentication**, and powered by
 │  (Vite SPA) │◀───────────────────────────────────────── │   Backend    │
 └─────────────┘                                            └──────┬───────┘
                                                                     │
-                                        ┌───────────────────────────┼───────────────────────────┐
-                                        ▼                           ▼                           ▼
-                                  ┌───────────┐             ┌───────────────┐          ┌──────────────┐
-                                  │ MongoDB   │             │ Google Gemini │          │  Puppeteer    │
-                                  │ (Mongoose)│             │ (AI Service)  │          │ (PDF Render)  │
-                                  └───────────┘             └───────────────┘          └──────────────┘
+                    ┌───────────────────┬───────────────────────────┼───────────────────────────┐
+                    ▼                   ▼                           ▼                           ▼
+              ┌───────────┐     ┌───────────────┐            ┌───────────────┐          ┌──────────────┐
+              │ MongoDB   │     │ pdf-parse /   │            │ Google Gemini │          │  Puppeteer    │
+              │ (Mongoose)│     │ Tesseract OCR │            │ (AI Service)  │          │ (PDF Render)  │
+              └───────────┘     └───────────────┘            └───────────────┘          └──────────────┘
 ```
 
 ---
@@ -117,7 +126,8 @@ GenAi-fullstack/
 │   │   │   ├── auth.routes.js
 │   │   │   └── interview.routes.js
 │   │   ├── services/
-│   │   │   └── ai.service.js            # Gemini prompt orchestration + PDF generation
+│   │   │   ├── ai.service.js            # Gemini prompt orchestration + resume markdown → PDF
+│   │   │   └── pdfExtraction.service.js # Text extraction with automatic OCR fallback
 │   │   └── app.js                       # Express app configuration
 │   ├── .env
 │   ├── package.json
@@ -133,6 +143,7 @@ GenAi-fullstack/
     │   │   │   ├── services/            # auth.api.js
     │   │   │   └── auth.context.jsx
     │   │   └── interview/
+    │   │       ├── components/          # Shared LoadingScreen
     │   │       ├── hooks/               # useInterview
     │   │       ├── pages/               # Home, Interview
     │   │       ├── services/            # interview.api.js
@@ -210,11 +221,11 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key
 ### Interview Routes — `/api/interview`
 
 | Method | Endpoint                        | Description                                              | Access  |
-|--------|----------------------------------|-----------------------------------------------------------|---------|
-| POST   | `/`                              | Generate an interview report (resume + job description)   | Private |
-| GET    | `/`                              | Get all interview reports for the logged-in user           | Private |
-| GET    | `/report/:interviewId`           | Get a single interview report by ID                        | Private |
-| POST   | `/resume/pdf/:interviewReportId` | Generate a tailored resume PDF for a given report           | Private |
+|--------|----------------------------------|-------------------------------------------------------------|---------|
+| POST   | `/`                              | Generate an interview report (resume + job description)     | Private |
+| GET    | `/`                              | Get all interview reports for the logged-in user             | Private |
+| GET    | `/report/:interviewId`           | Get a single interview report by ID                          | Private |
+| POST   | `/resume/pdf/:interviewReportId` | Generate a tailored resume PDF for a given report             | Private |
 
 > All private routes require a valid JWT sent via HTTP-only cookie.
 
@@ -224,10 +235,16 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key
 
 1. **User authenticates** — registers or logs in; the backend issues a JWT stored in an HTTP-only cookie.
 2. **User submits a job description + resume (or self-description)** through the Home page.
-3. **Backend extracts resume text** using `pdf-parse`, then sends the resume, self-description, and job description to **Gemini** with a strict JSON response schema.
-4. **Gemini returns a structured report** — match score, technical/behavioral questions, skill gaps, and a preparation plan — which is validated and persisted in MongoDB.
-5. **User can request a tailored resume PDF** — the AI rewrites the resume content for the target role, and Puppeteer renders it into a downloadable, ATS-friendly PDF.
-6. **All reports are saved** to the user's account and accessible anytime from their report history.
+3. **Backend extracts resume text**:
+   - Attempts fast direct extraction via `pdf-parse`.
+   - If that yields too little text (indicating a scanned or image-based PDF), automatically falls back to rendering each page as an image and running OCR.
+   - If neither method produces usable text, the request fails early with a clear, user-facing error instead of silently generating a broken report.
+4. **Resume, self-description, and job description are sent to Gemini** with a strict JSON response schema to generate the interview report.
+5. **Gemini returns a structured report** — match score, technical/behavioral questions, skill gaps, and a preparation plan — which is validated and persisted in MongoDB.
+6. **User can request a tailored resume PDF**:
+   - Gemini is instructed to **edit** the original extracted resume text — preserving real name, contact details, education, experience, achievements, and certifications exactly — only adjusting wording/relevance for the target job and removing clearly irrelevant content.
+   - The AI's output follows a strict markdown template (with optional redaction directives for hiding personal details); the backend parses it, converts it to styled HTML, and renders it to PDF.
+7. **All reports are saved** to the user's account and accessible anytime from their report history.
 
 ---
 
