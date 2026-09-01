@@ -1,12 +1,14 @@
 import React,{useState} from 'react'
 import{useAuth} from '../hooks/useAuth.js'
 import {useNavigate,Link} from 'react-router'
+import '../auth.form.scss'
 
 const Register = () => {
   const navigate = useNavigate()
   const[username,setUsername] = useState("")
   const[email,setEmail] = useState("")
   const[password,setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
   const {loading,handleRegister} = useAuth()
 
