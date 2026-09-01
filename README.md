@@ -258,8 +258,6 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key
 
 ---
 
-
-
 ## Author
 
 **Abhinav Prasad**
