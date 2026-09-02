@@ -1,116 +1,335 @@
-# GenAI Resume & Job Matching Platform
+# GenAI Resume
 
-A full-stack software-engineering project that analyzes a candidate resume against a job description, calculates an **explainable match score**, generates interview preparation material with Gemini, stores semantic embeddings in **PostgreSQL + pgvector**, and provides a grounded **RAG interview assistant**.
+A full-stack AI-powered resume analysis and interview preparation platform that compares a candidate's resume with a job description, calculates an explainable match score, identifies skill gaps, generates personalized interview preparation content, and provides a RAG-based assistant grounded in the resume and job description.
 
-## Why this version is different
+## Features
 
-The LLM does **not** invent the match percentage. The backend calculates it deterministically from four components: skill coverage (50%), semantic similarity (25%), keyword coverage (15%), and profile completeness (10%). Gemini is used where generative models add value: interview questions, preparation plans, grounded Q&A, and resume rewriting.
+- Resume PDF upload and text extraction
+- Resume and job description analysis
+- Explainable resume-job match scoring
+- Automatic matched and missing skill detection
+- Semantic similarity using vector embeddings
+- RAG-based interview assistant
+- Technical and behavioral interview question generation
+- Personalized 7-day preparation roadmap
+- Job-specific resume generation
+- PDF resume download
+- User authentication and protected routes
+- PostgreSQL vector storage using pgvector
+- Automated backend testing
+- GitHub Actions CI pipeline
 
-## Stack
+## Tech Stack
 
-- Frontend: React, Vite, Sass, Axios
-- Backend: Node.js, Express 5, Zod, JWT, Multer
-- Database: PostgreSQL with normalized relational tables
-- Semantic search: pgvector + Gemini embeddings (768 dimensions)
-- GenAI: Google GenAI SDK / Gemini
-- PDF processing: pdf-parse, OCR fallback with Tesseract, Puppeteer PDF generation
-- Engineering: Helmet, rate limiting, request IDs, centralized errors, Docker Compose, GitHub Actions, OpenAPI
+### Frontend
+- React
+- Vite
+- JavaScript
+- SCSS
+- Axios
+- React Router
 
-## Data model
+### Backend
+- Node.js
+- Express.js
+- REST APIs
+- Zod
+- JWT
+- bcrypt
+- Multer
 
-The database migration creates `users`, `resumes`, `jobs`, `applications`, `skills`, `resume_skills`, `job_skills`, `analysis_results`, `interview_reports`, `document_chunks`, and `revoked_tokens`.
+### Database
+- PostgreSQL
+- pgvector
 
-## Local setup
+### AI
+- Google Gemini
+- Vector Embeddings
+- Retrieval-Augmented Generation (RAG)
+- Cosine Similarity
+- Semantic Search
 
-### 1. Start PostgreSQL + pgvector
+### DevOps & Testing
+- Docker
+- Docker Compose
+- GitHub Actions
+- Node.js Test Runner
+- Git & GitHub
 
-```bash
-docker compose up -d postgres
+---
+
+## How It Works
+
+The application combines deterministic matching logic with semantic search and generative AI.
+
+```text
+Resume + Job Description
+          │
+          ▼
+     Text Extraction
+          │
+          ├───────────────┐
+          │               │
+          ▼               ▼
+   Skill Analysis     Embeddings
+          │               │
+          ▼               ▼
+ Keyword Matching   Cosine Similarity
+          │               │
+          └───────┬───────┘
+                  ▼
+          Explainable Score
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+ Interview Report     RAG Assistant
 ```
 
-### 2. Configure the backend
+---
+
+## Explainable Match Score
+
+The resume-job match score is calculated by application logic instead of being generated directly by an LLM.
+
+| Component | Weight |
+|---|---:|
+| Skill Coverage | 50% |
+| Semantic Similarity | 25% |
+| Keyword Coverage | 15% |
+| Profile Completeness | 10% |
+
+The system extracts technical skills from both documents and determines which required skills are present or missing.
+
+Semantic similarity is calculated using vector embeddings and cosine similarity.
+
+If embeddings are unavailable, the application falls back to lexical similarity.
+
+---
+
+## RAG Assistant
+
+The application includes a Retrieval-Augmented Generation assistant that answers questions using the candidate's resume and target job description as context.
+
+```text
+Resume + Job Description
+          │
+          ▼
+      Text Chunks
+          │
+          ▼
+       Embeddings
+          │
+          ▼
+ PostgreSQL + pgvector
+          │
+          │
+     User Question
+          │
+          ▼
+    Query Embedding
+          │
+          ▼
+  Similarity Search
+          │
+          ▼
+ Relevant Context
+          │
+          ▼
+       Gemini
+          │
+          ▼
+   Grounded Answer
+```
+
+Instead of sending the complete document for every question, relevant chunks are retrieved using vector similarity and supplied to the model as context.
+
+---
+
+## Interview Preparation
+
+Based on the resume and target role, the application generates:
+
+- Technical interview questions
+- Behavioral interview questions
+- Question intentions
+- Suggested answers
+- Skill-gap analysis
+- 7-day preparation roadmap
+
+The RAG assistant can then answer follow-up questions such as:
+
+> Which missing skills should I prioritize for this role?
+
+> Which projects from my resume are most relevant to this job?
+
+> What technical topics should I prepare before the interview?
+
+---
+
+## Resume Generation
+
+The application can generate a job-targeted version of the candidate's existing resume.
+
+It preserves factual candidate information while allowing relevant content to be reorganized and reworded according to the target job description.
+
+The generated resume can be downloaded as a PDF.
+
+---
+
+## Backend Architecture
+
+The backend follows a layered architecture:
+
+```text
+Routes
+  │
+  ▼
+Controllers
+  │
+  ▼
+Services
+  │
+  ├── AI Service
+  ├── Skill Matching
+  ├── PDF Extraction
+  └── RAG Retrieval
+  │
+  ▼
+PostgreSQL + pgvector
+```
+
+The REST API is versioned under:
+
+```text
+/api/v1
+```
+
+---
+
+## Reliability & Security
+
+The backend includes:
+
+- JWT authentication
+- HTTP-only authentication cookies
+- Password hashing
+- Protected API routes
+- Request validation
+- Rate limiting
+- Helmet security headers
+- Centralized error handling
+- Request IDs
+- Environment validation
+- Gemini retry handling with exponential backoff
+- Lexical fallback when embeddings are unavailable
+
+---
+
+## Testing
+
+Automated tests cover the core matching logic and API behavior, including:
+
+- Skill extraction
+- Skill aliases
+- False-positive prevention
+- Matched and missing skills
+- Keyword similarity
+- Cosine similarity
+- Semantic fallback
+- Score boundaries
+- Profile completeness
+- API validation
+- Authentication protection
+- Security headers
+- Request tracing
+- Health checks
+- Error handling
+
+Run the backend tests with:
 
 ```bash
 cd Backend
-cp .env.example .env
+npm test
 ```
 
-Set your Gemini API key and a strong JWT secret in `.env`.
+---
 
-### 3. Install, migrate, and start the backend
+## Continuous Integration
+
+GitHub Actions automatically validates the project on pushes and pull requests.
+
+```text
+Git Push / Pull Request
+          │
+          ▼
+     GitHub Actions
+       /        \
+      ▼          ▼
+Backend Tests  Frontend Build
+   npm test     npm run build
+```
+
+---
+
+## Running Locally
+
+### Backend
 
 ```bash
+cd Backend
 npm install
 npm run migrate
 npm run dev
 ```
 
-The API runs at `http://localhost:3000`, health check at `/health`, and the OpenAPI contract at `/openapi.yaml`.
-
-### 4. Start the frontend
+### Frontend
 
 ```bash
-cd ../Frontend
-cp .env.example .env
+cd Frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+The frontend runs through Vite and communicates with the versioned Express REST API.
 
-## Main flow
+---
 
-1. Register/login.
-2. Upload a PDF resume and paste a job description.
-3. The app extracts resume text (OCR fallback for scanned PDFs).
-4. It detects resume/JD skills and generates Gemini embeddings.
-5. Application code calculates the match score and persists normalized analysis data.
-6. Gemini generates technical questions, behavioral questions, and a 7-day plan without controlling the score.
-7. Resume/JD text is chunked, embedded, and indexed in pgvector.
-8. The RAG Assistant embeds a user question, retrieves the most relevant chunks with cosine distance, and sends only that grounded context to Gemini.
+## Project Structure
 
-## API
-
-All new endpoints use `/api/v1`:
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/logout`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/interviews`
-- `GET /api/v1/interviews`
-- `GET /api/v1/interviews/report/:interviewId`
-- `POST /api/v1/interviews/report/:interviewId/assistant`
-- `POST /api/v1/interviews/resume/pdf/:interviewReportId`
-
-## Security and backend engineering
-
-- HTTP-only authentication cookie
-- Password hashing with bcrypt
-- Revoked JWTs stored only as SHA-256 hashes
-- Ownership checks on reports and resume generation
-- Zod request validation
-- PDF type/size validation
-- Helmet security headers
-- API/auth rate limits
-- Request correlation IDs
-- Centralized 404/error middleware
-- Environment validation/fail-fast startup
-- Graceful shutdown
-
-## Testing
-
-```bash
-cd Backend
-npm test
-
-cd ../Frontend
-npm run lint
-npm run build
+```text
+genAi-resume/
+│
+├── Backend/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middlewares/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── app.js
+│   ├── tests/
+│   └── server.js
+│
+├── Frontend/
+│   └── src/
+│       ├── features/
+│       │   ├── auth/
+│       │   └── interview/
+│       ├── App.jsx
+│       └── main.jsx
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── docker-compose.yml
+└── README.md
 ```
 
-The GitHub Actions workflow runs backend unit tests and frontend lint/build on pushes and pull requests.
+---
 
-## Important migration note
+## Author
 
-This upgrade replaces MongoDB/Mongoose with PostgreSQL. Existing MongoDB user/report data is not automatically imported. For a development/demo project, start with the new PostgreSQL database. If you need old MongoDB data, write a one-off migration script rather than running both databases permanently.
+**Abhinav Prasad**  
+B.Tech — Computer Science & Information Technology  
+Institute of Engineering & Management, Kolkata
