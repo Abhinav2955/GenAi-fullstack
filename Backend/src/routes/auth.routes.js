@@ -1,36 +1,13 @@
-const  {Router}=require('express')
-const authController=require("../controllers/auth.controller")
-const authMiddleware=require("../middlewares/auth.middleware")
+const { Router } = require('express')
+const c = require('../controllers/auth.controller')
+const validate = require('../middlewares/validate.middleware')
+const { authUser } = require('../middlewares/auth.middleware')
+const asyncHandler = require('../utils/asyncHandler')
 
-const authRouter=Router()
-
-/** 
- *@routes POST /api/auth/register
- *@description Register a new user
- *@access public
- */ 
-
- authRouter.post("/register",authController.registerUserController)
-
- /**
- *@routes POST /api/auth/login
- *@description Login a user with email and password
- *@access public
- */ 
- authRouter.post("/login",authController.loginUserController)
-
- /**
- *@routes GET /api/auth/logout
- *@description CLEAR the token from the cookie and add it to the blacklist
- *@access public
- */ 
-authRouter.post("/logout",authController.logoutUserController)
-
-/**
- *@routes GET /api/auth/get-me
- *@description get the current logged in user 
-*@access private
- */
-authRouter.get("/get-me",authMiddleware.authUser,authController.getMeController)
-
-module.exports=authRouter
+const router = Router()
+router.post('/register', validate(c.registerSchema), asyncHandler(c.registerUserController))
+router.post('/login', validate(c.loginSchema), asyncHandler(c.loginUserController))
+router.post('/logout', asyncHandler(c.logoutUserController))
+router.get('/me', authUser, asyncHandler(c.getMeController))
+router.get('/get-me', authUser, asyncHandler(c.getMeController))
+module.exports = router

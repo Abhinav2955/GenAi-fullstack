@@ -1,22 +1,32 @@
-const express = require('express');
-const app = express();
-const cookieParser = require('cookie-parser');
-const cors = require('cors');
+const express = require('express')
+const path = require('path')
+const cookieParser = require('cookie-parser')
+const cors = require('cors')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
+const env = require('./config/env')
+const requestContext = require('./middlewares/request.middleware')
+const { notFound,errorHandler } = require('./middlewares/error.middleware')
+const authRouter = require('./routes/auth.routes')
+const interviewRouter = require('./routes/interview.routes')
 
-app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true
-}))
-
-app.use(express.json())
+const app = express()
+app.disable('x-powered-by')
+app.use(requestContext)
+app.use(helmet())
+app.use(cors({ origin:env.FRONTEND_ORIGIN, credentials:true }))
+app.use(express.json({ limit:'1mb' }))
 app.use(cookieParser())
-// require all the routes here
-const authRouter=require("./routes/auth.routes")
-const interviewRouter=require("./routes/interview.routes")
+app.use('/api/v1', rateLimit({ windowMs:15*60*1000, limit:300, standardHeaders:'draft-7', legacyHeaders:false }))
+app.use('/api/v1/auth', rateLimit({ windowMs:15*60*1000, limit:60, standardHeaders:'draft-7', legacyHeaders:false }))
 
-
-// using all the routes here
-app.use("/api/auth",authRouter)
-app.use("/api/interview",interviewRouter)
-
-module.exports=app
+app.get('/openapi.yaml', (req,res)=>res.sendFile(path.join(__dirname,'../openapi.yaml')))
+app.get('/health', (req,res)=>res.json({ success:true,status:'ok',timestamp:new Date().toISOString() }))
+app.use('/api/v1/auth', authRouter)
+app.use('/api/v1/interviews', interviewRouter)
+// Backward-compatible aliases while the frontend migrates.
+app.use('/api/auth', authRouter)
+app.use('/api/interview', interviewRouter)
+app.use(notFound)
+app.use(errorHandler)
+module.exports = app

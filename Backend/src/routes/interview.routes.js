@@ -1,42 +1,15 @@
-const express = require("express")
-const authMiddleware = require("../middlewares/auth.middleware")
-const interviewController = require("../controllers/interview.controller")
-const upload = require("../middlewares/file.middleware")
+const { Router } = require('express')
+const c = require('../controllers/interview.controller')
+const { authUser } = require('../middlewares/auth.middleware')
+const upload = require('../middlewares/file.middleware')
+const validate = require('../middlewares/validate.middleware')
+const asyncHandler = require('../utils/asyncHandler')
+const router = Router()
 
-const interviewRouter = express.Router()
-
-
-
-/**
- * @route POST /api/interview/
- * @description generate new interview report on the basis of user self description,resume pdf and job description.
- * @access private
- */
-interviewRouter.post("/", authMiddleware.authUser, upload.single("resume"), interviewController.generateInterViewReportController)
-
-/**
- * @route GET /api/interview/report/:interviewId
- * @description get interview report by interviewId.
- * @access private
- */
-interviewRouter.get("/report/:interviewId", authMiddleware.authUser, interviewController.getInterviewReportByIdController)
-
-
-/**
- * @route GET /api/interview/
- * @description get all interview reports of logged in user.
- * @access private
- */
-interviewRouter.get("/", authMiddleware.authUser, interviewController.getAllInterviewReportsController)
-
-
-/**
- * @route GET /api/interview/resume/pdf
- * @description generate resume pdf on the basis of user self description, resume content and job description.
- * @access private
- */
-interviewRouter.post("/resume/pdf/:interviewReportId", authMiddleware.authUser, interviewController.generateResumePdfController)
-
-
-
-module.exports = interviewRouter
+router.use(authUser)
+router.post('/', upload.single('resume'), validate(c.reportSchema), asyncHandler(c.generateInterViewReportController))
+router.get('/', asyncHandler(c.getAllInterviewReportsController))
+router.get('/report/:interviewId', asyncHandler(c.getInterviewReportByIdController))
+router.post('/report/:interviewId/assistant', validate(c.assistantSchema), asyncHandler(c.askAssistantController))
+router.post('/resume/pdf/:interviewReportId', asyncHandler(c.generateResumePdfController))
+module.exports = router

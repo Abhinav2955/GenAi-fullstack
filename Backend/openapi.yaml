@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: GenAI Resume API
+  version: 2.0.0
+  description: Resume/job matching, interview preparation, RAG assistant, and tailored resume API.
+servers:
+  - url: http://localhost:3000/api/v1
+paths:
+  /auth/register:
+    post:
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username,email,password]
+              properties:
+                username: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses: { '201': { description: Registered } }
+  /auth/login:
+    post:
+      summary: Login
+      responses: { '200': { description: Logged in } }
+  /auth/me:
+    get:
+      summary: Current user
+      responses: { '200': { description: User profile }, '401': { description: Unauthorized } }
+  /interviews:
+    post:
+      summary: Analyze a resume against a job and generate an interview plan
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [jobDescription]
+              properties:
+                resume: { type: string, format: binary }
+                jobDescription: { type: string }
+                selfDescription: { type: string }
+      responses: { '201': { description: Analysis created } }
+    get:
+      summary: List current user's reports
+      responses: { '200': { description: Report list } }
+  /interviews/report/{interviewId}:
+    get:
+      summary: Get one report
+      parameters:
+        - in: path
+          name: interviewId
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { '200': { description: Full report } }
+  /interviews/report/{interviewId}/assistant:
+    post:
+      summary: Ask the pgvector-backed RAG assistant
+      parameters:
+        - in: path
+          name: interviewId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string }
+      responses: { '200': { description: Grounded answer with retrieval source types } }
+  /interviews/resume/pdf/{interviewReportId}:
+    post:
+      summary: Generate a job-tailored resume PDF
+      parameters:
+        - in: path
+          name: interviewReportId
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { '200': { description: PDF document } }

@@ -1,42 +1,52 @@
-import React, { useState, useEffect } from 'react'
-import '../style/interview.scss'
-import { useInterview } from '../hooks/useInterview.js'
-import { useNavigate, useParams } from 'react-router'
-import LoadingScreen from '../components/LoadingScreen.jsx'
+import { useEffect, useState } from "react"
+import "../style/interview.scss"
+import { useInterview } from "../hooks/useInterview.js"
+import { useParams } from "react-router"
+import LoadingScreen from "../components/LoadingScreen.jsx"
 
-const RESUME_LOADING_STEPS = [
-    "Reviewing your resume...",
-    "Tailoring content for this role...",
-    "Formatting your document...",
-    "Almost done...",
+const NAV = [
+    ["technical", "Technical Questions"],
+    ["behavioral", "Behavioral Questions"],
+    ["roadmap", "Road Map"],
+    ["analysis", "Score Analysis"],
+    ["assistant", "RAG Assistant"],
 ]
 
-const NAV_ITEMS = [
-    { id: 'technical', label: 'Technical Questions', icon: (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>) },
-    { id: 'behavioral', label: 'Behavioral Questions', icon: (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
-    { id: 'roadmap', label: 'Road Map', icon: (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>) },
-]
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 const QuestionCard = ({ item, index }) => {
-    const [ open, setOpen ] = useState(false)
+    const [open, setOpen] = useState(false)
+
     return (
-        <div className='q-card'>
-            <div className='q-card__header' onClick={() => setOpen(o => !o)}>
-                <span className='q-card__index'>Q{index + 1}</span>
-                <p className='q-card__question'>{item.question}</p>
-                <span className={`q-card__chevron ${open ? 'q-card__chevron--open' : ''}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        <div className="q-card">
+            <div
+                className="q-card__header"
+                onClick={() => setOpen(!open)}
+            >
+                <span className="q-card__index">
+                    Q{index + 1}
                 </span>
+
+                <p className="q-card__question">
+                    {item.question}
+                </p>
+
+                <span>⌄</span>
             </div>
+
             {open && (
-                <div className='q-card__body'>
-                    <div className='q-card__section'>
-                        <span className='q-card__tag q-card__tag--intention'>Intention</span>
+                <div className="q-card__body">
+                    <div className="q-card__section">
+                        <span className="q-card__tag q-card__tag--intention">
+                            Intention
+                        </span>
+
                         <p>{item.intention}</p>
                     </div>
-                    <div className='q-card__section'>
-                        <span className='q-card__tag q-card__tag--answer'>Model Answer</span>
+
+                    <div className="q-card__section">
+                        <span className="q-card__tag q-card__tag--answer">
+                            Model Answer
+                        </span>
+
                         <p>{item.answer}</p>
                     </div>
                 </div>
@@ -46,15 +56,20 @@ const QuestionCard = ({ item, index }) => {
 }
 
 const RoadMapDay = ({ day }) => (
-    <div className='roadmap-day'>
-        <div className='roadmap-day__header'>
-            <span className='roadmap-day__badge'>Day {day.day}</span>
-            <h3 className='roadmap-day__focus'>{day.focus}</h3>
+    <div className="roadmap-day">
+        <div className="roadmap-day__header">
+            <span className="roadmap-day__badge">
+                Day {day.day}
+            </span>
+
+            <h3 className="roadmap-day__focus">
+                {day.focus}
+            </h3>
         </div>
-        <ul className='roadmap-day__tasks'>
-            {day.tasks.map((task, i) => (
-                <li key={i}>
-                    <span className='roadmap-day__bullet' />
+
+        <ul className="roadmap-day__tasks">
+            {day.tasks.map((task, index) => (
+                <li key={index}>
                     {task}
                 </li>
             ))}
@@ -62,151 +77,639 @@ const RoadMapDay = ({ day }) => (
     </div>
 )
 
-// ── Main Component ────────────────────────────────────────────────────────────
-const Interview = () => {
-    const [ activeNav, setActiveNav ] = useState('technical')
-    const { report, getReportById, getResumePdf } = useInterview()
-    const { interviewId } = useParams()
-    const [ isDownloadingResume, setIsDownloadingResume ] = useState(false)
+export default function Interview() {
+    const [active, setActive] =
+        useState("technical")
+
+    const [downloading, setDownloading] =
+        useState(false)
+
+    const [question, setQuestion] =
+        useState("")
+
+    const [chat, setChat] =
+        useState([])
+
+    const [asking, setAsking] =
+        useState(false)
+
+    const [assistantError, setAssistantError] =
+        useState("")
+
+    const {
+        report,
+        getReportById,
+        getResumePdf,
+        askAssistant,
+    } = useInterview()
+
+    const { interviewId } =
+        useParams()
 
     useEffect(() => {
         if (interviewId) {
             getReportById(interviewId)
         }
-    }, [ interviewId ])
+    }, [interviewId])
 
-    const handleDownloadResume = async () => {
-        setIsDownloadingResume(true)
+    if (!report) {
+        return (
+            <LoadingScreen
+                steps={[
+                    "Fetching your interview plan...",
+                ]}
+                title="Loading"
+            />
+        )
+    }
+
+    const ask = async () => {
+        const trimmedQuestion =
+            question.trim()
+
+        if (
+            !trimmedQuestion ||
+            asking
+        ) {
+            return
+        }
+
+        setAssistantError("")
+        setAsking(true)
+
         try {
-            await getResumePdf(interviewId)
+            const response =
+                await askAssistant(
+                    interviewId,
+                    trimmedQuestion
+                )
+
+            /*
+             * Only add the question to the
+             * conversation if the request
+             * successfully returns an answer.
+             *
+             * This prevents failed questions
+             * from appearing repeatedly.
+             */
+            setChat((previous) => [
+                ...previous,
+                {
+                    q: trimmedQuestion,
+                    a: response.answer,
+                    sources:
+                        response.sources || [],
+                },
+            ])
+
+            setQuestion("")
+        } catch (error) {
+            const status =
+                error?.response?.status
+
+            let message =
+                error?.response?.data
+                    ?.message ||
+                "Assistant is unavailable right now."
+
+            if (status === 503) {
+                message =
+                    "The AI service is temporarily busy. Please try again in a few seconds."
+            }
+
+            if (status === 429) {
+                message =
+                    "Too many AI requests were made. Please wait a moment and try again."
+            }
+
+            setAssistantError(
+                message
+            )
         } finally {
-            setIsDownloadingResume(false)
+            setAsking(false)
         }
     }
 
-    // Only the FIRST load (no report yet) shows the full-page loader.
-    // Resume PDF generation must NOT unmount the already-loaded report.
-    if (!report) {
-        return <LoadingScreen steps={[ "Fetching your interview plan..." ]} title="Loading" />
-    }
+    const handleQuestionKeyDown =
+        (event) => {
+            /*
+             * Enter = send
+             * Shift + Enter = new line
+             */
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+                event.preventDefault()
 
-    if (isDownloadingResume) {
-        return <LoadingScreen steps={RESUME_LOADING_STEPS} title="Tailoring Your Resume" footnote="This usually takes about 20 seconds. Please don't close this tab." />
-    }
+                if (!asking) {
+                    ask()
+                }
+            }
+        }
 
-    const scoreColor =
-        report.matchScore >= 80 ? 'score--high' :
-            report.matchScore >= 60 ? 'score--mid' : 'score--low'
+    const handleDownload =
+        async () => {
+            setDownloading(true)
 
+            try {
+                await getResumePdf(
+                    interviewId
+                )
+            } finally {
+                setDownloading(false)
+            }
+        }
+
+    const score =
+        report.scoreBreakdown || {}
 
     return (
-        <div className='interview-page'>
-            <div className='interview-layout'>
+        <div className="interview-page">
+            <div className="interview-layout">
 
-                {/* ── Left Nav ── */}
-                <nav className='interview-nav'>
+                <nav className="interview-nav">
                     <div className="nav-content">
-                        <p className='interview-nav__label'>Sections</p>
-                        {NAV_ITEMS.map(item => (
-                            <button
-                                key={item.id}
-                                className={`interview-nav__item ${activeNav === item.id ? 'interview-nav__item--active' : ''}`}
-                                onClick={() => setActiveNav(item.id)}
-                            >
-                                <span className='interview-nav__icon'>{item.icon}</span>
-                                {item.label}
-                            </button>
-                        ))}
+                        <p className="interview-nav__label">
+                            Sections
+                        </p>
+
+                        {NAV.map(
+                            ([id, label]) => (
+                                <button
+                                    key={id}
+                                    className={
+                                        `interview-nav__item ${
+                                            active === id
+                                                ? "interview-nav__item--active"
+                                                : ""
+                                        }`
+                                    }
+                                    onClick={() =>
+                                        setActive(id)
+                                    }
+                                >
+                                    {label}
+                                </button>
+                            )
+                        )}
                     </div>
+
                     <button
-                        onClick={handleDownloadResume}
-                        disabled={isDownloadingResume}
-                        className='button primary-button' >
-                        <svg height={"0.8rem"} style={{ marginRight: "0.8rem" }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10.6144 17.7956 11.492 15.7854C12.2731 13.9966 13.6789 12.5726 15.4325 11.7942L17.8482 10.7219C18.6162 10.381 18.6162 9.26368 17.8482 8.92277L15.5079 7.88394C13.7092 7.08552 12.2782 5.60881 11.5105 3.75894L10.6215 1.61673C10.2916.821765 9.19319.821767 8.8633 1.61673L7.97427 3.75892C7.20657 5.60881 5.77553 7.08552 3.97685 7.88394L1.63658 8.92277C.868537 9.26368.868536 10.381 1.63658 10.7219L4.0523 11.7942C5.80589 12.5726 7.21171 13.9966 7.99275 15.7854L8.8704 17.7956C9.20776 18.5682 10.277 18.5682 10.6144 17.7956ZM19.4014 22.6899 19.6482 22.1242C20.0882 21.1156 20.8807 20.3125 21.8695 19.8732L22.6299 19.5353C23.0412 19.3526 23.0412 18.7549 22.6299 18.5722L21.9121 18.2532C20.8978 17.8026 20.0911 16.9698 19.6586 15.9269L19.4052 15.3156C19.2285 14.8896 18.6395 14.8896 18.4628 15.3156L18.2094 15.9269C17.777 16.9698 16.9703 17.8026 15.956 18.2532L15.2381 18.5722C14.8269 18.7549 14.8269 19.3526 15.2381 19.5353L15.9985 19.8732C16.9874 20.3125 17.7798 21.1156 18.2198 22.1242L18.4667 22.6899C18.6473 23.104 19.2207 23.104 19.4014 22.6899Z"></path></svg>
-                        Download Resume
+                        className="button primary-button"
+                        disabled={
+                            downloading
+                        }
+                        onClick={
+                            handleDownload
+                        }
+                    >
+                        {downloading
+                            ? "Generating..."
+                            : "Download Resume"}
                     </button>
                 </nav>
 
-                <div className='interview-divider' />
+                <div className="interview-divider" />
 
-                {/* ── Center Content ── */}
-                <main className='interview-content'>
-                    {activeNav === 'technical' && (
+                <main className="interview-content">
+
+                    {active ===
+                        "technical" && (
                         <section>
-                            <div className='content-header'>
-                                <h2>Technical Questions</h2>
-                                <span className='content-header__count'>{report.technicalQuestions.length} questions</span>
+                            <div className="content-header">
+                                <h2>
+                                    Technical Questions
+                                </h2>
+
+                                <span className="content-header__count">
+                                    {
+                                        report
+                                            .technicalQuestions
+                                            .length
+                                    }{" "}
+                                    questions
+                                </span>
                             </div>
-                            <div className='q-list'>
-                                {report.technicalQuestions.map((q, i) => (
-                                    <QuestionCard key={i} item={q} index={i} />
-                                ))}
+
+                            <div className="q-list">
+                                {report.technicalQuestions.map(
+                                    (
+                                        questionItem,
+                                        index
+                                    ) => (
+                                        <QuestionCard
+                                            key={
+                                                index
+                                            }
+                                            item={
+                                                questionItem
+                                            }
+                                            index={
+                                                index
+                                            }
+                                        />
+                                    )
+                                )}
                             </div>
                         </section>
                     )}
 
-                    {activeNav === 'behavioral' && (
+                    {active ===
+                        "behavioral" && (
                         <section>
-                            <div className='content-header'>
-                                <h2>Behavioral Questions</h2>
-                                <span className='content-header__count'>{report.behavioralQuestions.length} questions</span>
+                            <div className="content-header">
+                                <h2>
+                                    Behavioral Questions
+                                </h2>
                             </div>
-                            <div className='q-list'>
-                                {report.behavioralQuestions.map((q, i) => (
-                                    <QuestionCard key={i} item={q} index={i} />
-                                ))}
+
+                            <div className="q-list">
+                                {report.behavioralQuestions.map(
+                                    (
+                                        questionItem,
+                                        index
+                                    ) => (
+                                        <QuestionCard
+                                            key={
+                                                index
+                                            }
+                                            item={
+                                                questionItem
+                                            }
+                                            index={
+                                                index
+                                            }
+                                        />
+                                    )
+                                )}
                             </div>
                         </section>
                     )}
 
-                    {activeNav === 'roadmap' && (
+                    {active ===
+                        "roadmap" && (
                         <section>
-                            <div className='content-header'>
-                                <h2>Preparation Road Map</h2>
-                                <span className='content-header__count'>{report.preparationPlan.length}-day plan</span>
+                            <div className="content-header">
+                                <h2>
+                                    7-Day Preparation
+                                    Road Map
+                                </h2>
                             </div>
-                            <div className='roadmap-list'>
-                                {report.preparationPlan.map((day) => (
-                                    <RoadMapDay key={day.day} day={day} />
-                                ))}
+
+                            <div className="roadmap-list">
+                                {report.preparationPlan.map(
+                                    (day) => (
+                                        <RoadMapDay
+                                            key={
+                                                day.day
+                                            }
+                                            day={
+                                                day
+                                            }
+                                        />
+                                    )
+                                )}
                             </div>
                         </section>
                     )}
+
+                    {active ===
+                        "analysis" && (
+                        <section>
+                            <div className="content-header">
+                                <h2>
+                                    Explainable Match
+                                    Score
+                                </h2>
+                            </div>
+
+                            <p className="analysis-copy">
+                                This score is
+                                calculated by
+                                application logic,
+                                not generated by
+                                the LLM.
+                            </p>
+
+                            <div className="metric-grid">
+                                {[
+                                    [
+                                        "Skill coverage",
+                                        score.skillScore,
+                                        50,
+                                    ],
+                                    [
+                                        "Semantic similarity",
+                                        score.semanticScore,
+                                        25,
+                                    ],
+                                    [
+                                        "Keyword coverage",
+                                        score.keywordScore,
+                                        15,
+                                    ],
+                                    [
+                                        "Profile completeness",
+                                        score.profileScore,
+                                        10,
+                                    ],
+                                ].map(
+                                    ([
+                                        name,
+                                        value,
+                                        weight,
+                                    ]) => (
+                                        <div
+                                            className="metric-card"
+                                            key={
+                                                name
+                                            }
+                                        >
+                                            <b>
+                                                {
+                                                    name
+                                                }
+                                            </b>
+
+                                            <strong>
+                                                {value ??
+                                                    0}
+                                                %
+                                            </strong>
+
+                                            <small>
+                                                {
+                                                    weight
+                                                }
+                                                % weight
+                                            </small>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+
+                            <h3 className="analysis-heading">
+                                Matched skills
+                            </h3>
+
+                            <div className="skill-gaps__list">
+                                {(
+                                    report.matchedSkills ||
+                                    []
+                                ).map(
+                                    (
+                                        skill
+                                    ) => (
+                                        <span
+                                            className="skill-tag skill-tag--low"
+                                            key={
+                                                skill
+                                            }
+                                        >
+                                            {
+                                                skill
+                                            }
+                                        </span>
+                                    )
+                                )}
+                            </div>
+
+                            <h3 className="analysis-heading">
+                                Missing skills
+                            </h3>
+
+                            <div className="skill-gaps__list">
+                                {(
+                                    report.missingSkills ||
+                                    []
+                                ).map(
+                                    (
+                                        skill
+                                    ) => (
+                                        <span
+                                            className="skill-tag skill-tag--high"
+                                            key={
+                                                skill
+                                            }
+                                        >
+                                            {
+                                                skill
+                                            }
+                                        </span>
+                                    )
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    {active ===
+                        "assistant" && (
+                        <section>
+                            <div className="content-header">
+                                <h2>
+                                    Grounded RAG
+                                    Assistant
+                                </h2>
+                            </div>
+
+                            <p className="analysis-copy">
+                                Ask questions about
+                                this resume and job
+                                description. Answers
+                                are grounded in
+                                retrieved resume/JD
+                                chunks stored in
+                                pgvector.
+                            </p>
+
+                            <div className="rag-chat">
+                                {chat.length ===
+                                    0 && (
+                                    <div className="rag-turn">
+                                        <div className="rag-a">
+                                            Try asking:
+                                            {" "}
+                                            “Which
+                                            missing
+                                            skills
+                                            should I
+                                            prioritize
+                                            for this
+                                            job?”
+                                        </div>
+                                    </div>
+                                )}
+
+                                {chat.map(
+                                    (
+                                        message,
+                                        index
+                                    ) => (
+                                        <div
+                                            className="rag-turn"
+                                            key={
+                                                index
+                                            }
+                                        >
+                                            <div className="rag-q">
+                                                {
+                                                    message.q
+                                                }
+                                            </div>
+
+                                            <div className="rag-a">
+                                                {
+                                                    message.a
+                                                }
+                                            </div>
+
+                                            {message
+                                                .sources
+                                                ?.length >
+                                                0 && (
+                                                <small>
+                                                    Retrieved
+                                                    from:{" "}
+                                                    {[
+                                                        ...new Set(
+                                                            message.sources.map(
+                                                                (
+                                                                    source
+                                                                ) =>
+                                                                    source.sourceType
+                                                            )
+                                                        ),
+                                                    ].join(
+                                                        ", "
+                                                    )}
+                                                </small>
+                                            )}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+
+                            {assistantError && (
+                                <div className="rag-turn">
+                                    <div className="rag-a">
+                                        {
+                                            assistantError
+                                        }
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="rag-input">
+                                <textarea
+                                    value={
+                                        question
+                                    }
+                                    onChange={(
+                                        event
+                                    ) => {
+                                        setQuestion(
+                                            event
+                                                .target
+                                                .value
+                                        )
+
+                                        if (
+                                            assistantError
+                                        ) {
+                                            setAssistantError(
+                                                ""
+                                            )
+                                        }
+                                    }}
+                                    onKeyDown={
+                                        handleQuestionKeyDown
+                                    }
+                                    disabled={
+                                        asking
+                                    }
+                                    placeholder="e.g. Which missing skills should I prioritize for this job?"
+                                />
+
+                                <button
+                                    className="button primary-button"
+                                    disabled={
+                                        asking ||
+                                        !question.trim()
+                                    }
+                                    onClick={
+                                        ask
+                                    }
+                                >
+                                    {asking
+                                        ? "Thinking..."
+                                        : "Ask"}
+                                </button>
+                            </div>
+                        </section>
+                    )}
+
                 </main>
 
-                <div className='interview-divider' />
+                <div className="interview-divider" />
 
-                {/* ── Right Sidebar ── */}
-                <aside className='interview-sidebar'>
+                <aside className="interview-sidebar">
+                    <div className="match-score">
+                        <p className="match-score__label">
+                            {report.title}
+                        </p>
 
-                    {/* Match Score */}
-                    <div className='match-score'>
-                        <p className='match-score__label'>Match Score</p>
-                        <div className={`match-score__ring ${scoreColor}`}>
-                            <span className='match-score__value'>{report.matchScore}</span>
-                            <span className='match-score__pct'>%</span>
+                        <div className="match-score__ring score--high">
+                            <span className="match-score__value">
+                                {
+                                    report.matchScore
+                                }
+                            </span>
+
+                            <span className="match-score__pct">
+                                %
+                            </span>
                         </div>
-                        <p className='match-score__sub'>Strong match for this role</p>
+
+                        <p className="match-score__sub">
+                            Deterministic +
+                            semantic score
+                        </p>
                     </div>
 
-                    <div className='sidebar-divider' />
+                    <div className="sidebar-divider" />
 
-                    {/* Skill Gaps */}
-                    <div className='skill-gaps'>
-                        <p className='skill-gaps__label'>Skill Gaps</p>
-                        <div className='skill-gaps__list'>
-                            {report.skillGaps.map((gap, i) => (
-                                <span key={i} className={`skill-tag skill-tag--${gap.severity}`}>
-                                    {gap.skill}
-                                </span>
-                            ))}
+                    <div className="skill-gaps">
+                        <p className="skill-gaps__label">
+                            Skill Gaps
+                        </p>
+
+                        <div className="skill-gaps__list">
+                            {(
+                                report.skillGaps ||
+                                []
+                            ).map(
+                                (
+                                    gap,
+                                    index
+                                ) => (
+                                    <span
+                                        key={
+                                            index
+                                        }
+                                        className={`skill-tag skill-tag--${gap.severity}`}
+                                    >
+                                        {
+                                            gap.skill
+                                        }
+                                    </span>
+                                )
+                            )}
                         </div>
                     </div>
-
                 </aside>
+
             </div>
         </div>
     )
 }
-
-export default Interview;

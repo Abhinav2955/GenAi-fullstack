@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import "../style/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
 import { useNavigate } from 'react-router'
@@ -118,7 +118,7 @@ const Home = () => {
                                 ) : (
                                     <>
                                         <p className='dropzone__title'>Click to upload or drag &amp; drop</p>
-                                        <p className='dropzone__subtitle'>PDF or DOCX (Max 5MB)</p>
+                                        <p className='dropzone__subtitle'>PDF (Max 5MB)</p>
                                     </>
                                 )}
                                 <input
@@ -128,7 +128,7 @@ const Home = () => {
                                     type='file'
                                     id='resume'
                                     name='resume'
-                                    accept='.pdf,.docx'
+                                    accept='.pdf'
                                 />
                             </label>
                         </div>

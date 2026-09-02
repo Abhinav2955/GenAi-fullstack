@@ -1,111 +1,69 @@
-const userModel=require("../models/user.model")
-const bcrypt=require("bcryptjs")
-const jwt  =require("jsonwebtoken")
-const tokenBlacklistModel=require("../models/blacklist.model")
-/**
- * @name registerUserController
- * @description register a new user,expects username,email and password in the request body
- * @access public
- */
-async function registerUserController(req,res){
-    const {username,email,password}=req.body
-    if(!username || !email || !password){
-        return res.status(400).json({message:"username,email and password are required"})
-    }   
-    const isUserAlreadyExists=await userModel.findOne({
-        $or:[{username},{email}]
-    })
-    if(isUserAlreadyExists){
-    
-        return res.status(400).json({message:"User already exists"})
-    }
-    const hash =await  bcrypt.hash(password,10)
-    const user =await userModel.create({
-        username,
-        email,
-        password:hash
-    })
-    const token=jwt.sign(
-        {id:user._id,username:user.username},process.env.JWT_SECRET,
-        {expiresIn:"1d"}
-    )
-    res.cookie("token",token)
-    res.status(201).json({
-        message:"User registered successfully",
-        user:{
-            id:user._id,
-            username:user.username,
-            email:user.email
-        }
-    })
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const { z } = require('zod')
+const db = require('../config/database')
+const env = require('../config/env')
+const AppError = require('../utils/AppError')
+const { hashToken } = require('../middlewares/auth.middleware')
+
+const registerSchema = z.object({
+  username: z.string().trim().min(2).max(80),
+  email: z.string().trim().email().toLowerCase(),
+  password: z.string().min(8).max(128),
+})
+const loginSchema = z.object({ email: z.string().trim().email().toLowerCase(), password: z.string().min(1).max(128) })
+
+function cookieOptions(withMaxAge = true) {
+  const production = env.NODE_ENV === 'production'
+  const options = { httpOnly: true, secure: production, sameSite: production ? 'none' : 'lax' }
+  if (withMaxAge) options.maxAge = 24 * 60 * 60 * 1000
+  return options
 }
-/**
- * @name loginUserController
- * @description login a user,expects email and password in the request body
- * @access public
- */
-async function loginUserController(req,res){
-    const {email,password}=req.body
-    console.log("LOGIN ATTEMPT:", { email, password })
-    
-    const user=await userModel.findOne({email})
-    console.log("USER FOUND:", user)
-    if(!user){
-        return res.status(400).json({message:"Invalid email or password"})
-    }
-    const isPasswordValid=await bcrypt.compare(password,user.password)
-    console.log("PASSWORD VALID:", isPasswordValid)
-    
-    if(!isPasswordValid){
-        return res.status(400).json({message:"Invalid email or password"})
-    }
-    const token=jwt.sign(
-        {id:user._id,username:user.username},process.env.JWT_SECRET,
-        {expiresIn:"1d"}
-    )
-    res.cookie("token",token)
-    res.status(200).json({
-        message:"User logged in successfully",
-        user:{
-            id:user._id,
-            username:user.username,
-            email:user.email
-        }
-    })
+function signToken(user) {
+  return jwt.sign({ id: user.id, username: user.username }, env.JWT_SECRET, { expiresIn: '1d' })
 }
-/**
- * @name logoutUserController
- * @description logout a user,clears the token from the cookie and adds it to the blacklist
- * @access public
- */
-async function logoutUserController(req,res){
-    const token=req.cookies.token
-    if(token){
-        await tokenBlacklistModel.create({token})
-    }
-    res.clearCookie("token")
-    res.status(200).json({message:"User logged out successfully"})
+
+async function registerUserController(req, res) {
+  const { username, email, password } = req.body
+  const existing = await db.query('SELECT id FROM users WHERE username=$1 OR email=$2 LIMIT 1', [username, email])
+  if (existing.rows.length) throw new AppError('Username or email is already registered.', 409)
+  const passwordHash = await bcrypt.hash(password, 12)
+  const { rows } = await db.query(
+    'INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING id,username,email',
+    [username, email, passwordHash],
+  )
+  const user = rows[0]
+  res.cookie('token', signToken(user), cookieOptions())
+  res.status(201).json({ success: true, message: 'User registered successfully', user })
 }
-/**
- * @name getMeController
- * @description get the current logged in user details.
- * @access private
- */
-async function getMeController(req,res){
+
+async function loginUserController(req, res) {
+  const { email, password } = req.body
+  const { rows } = await db.query('SELECT id,username,email,password_hash FROM users WHERE email=$1 LIMIT 1', [email])
+  const user = rows[0]
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new AppError('Invalid email or password.', 401)
+  const safeUser = { id: user.id, username: user.username, email: user.email }
+  res.cookie('token', signToken(safeUser), cookieOptions())
+  res.json({ success: true, message: 'User logged in successfully', user: safeUser })
+}
+
+async function logoutUserController(req, res) {
+  const token = req.cookies.token
+  if (token) {
     try {
-        const user = await userModel.findById(req.user.id)
-        if (!user) {
-            return res.status(404).json({message: "User not found"})
-        }
-        res.status(200).json({
-            message: "User details fetched successfully",
-            user: { id: user._id, username: user.username, email: user.email }
-        })
-    } catch (err) {
-        console.error(err)
-        res.status(500).json({message: "Internal server error"})
-    }
+      const decoded = jwt.decode(token)
+      const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24 * 60 * 60 * 1000)
+      await db.query('INSERT INTO revoked_tokens(token_hash,expires_at) VALUES($1,$2) ON CONFLICT DO NOTHING', [hashToken(token), expiresAt])
+    } catch (_) {}
+  }
+  res.clearCookie('token', cookieOptions(false))
+  res.json({ success: true, message: 'User logged out successfully' })
 }
 
+async function getMeController(req, res) {
+  const { rows } = await db.query('SELECT id,username,email FROM users WHERE id=$1', [req.user.id])
+  if (!rows[0]) throw new AppError('User not found.', 404)
+  res.json({ success: true, user: rows[0] })
+}
 
-module.exports={registerUserController,loginUserController,logoutUserController,getMeController}
+module.exports = { registerSchema, loginSchema, registerUserController, loginUserController, logoutUserController, getMeController }
