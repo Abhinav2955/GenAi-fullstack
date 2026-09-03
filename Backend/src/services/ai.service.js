@@ -8,10 +8,9 @@ const ai = new GoogleGenAI({
 })
 
 
-// ─────────────────────────────────────────────────────────────────────────
-// Retry helper for temporary Gemini errors
-// Handles 429 / 503 / temporary unavailability
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Retry helper
+// -----------------------------------------------------------------------------
 
 const sleep = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms))
@@ -70,9 +69,9 @@ async function generateWithRetry(
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Interview report schema
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const interviewReportJsonSchema = {
     type: "object",
@@ -180,9 +179,9 @@ const interviewReportJsonSchema = {
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Interview report generation
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 async function generateInterviewReport({
     resume,
@@ -245,9 +244,9 @@ The match percentage is calculated by the application and MUST NOT be generated 
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Embeddings
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 async function getEmbedding(
     text,
@@ -279,9 +278,9 @@ async function getEmbedding(
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // RAG assistant
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 async function generateRagAnswer({
     question,
@@ -296,7 +295,6 @@ Answer the user's question using ONLY the retrieved context below.
 If the context does not support a claim about the candidate, clearly say that the available resume or job-description context does not provide enough information.
 
 Do NOT invent:
-
 - skills
 - experience
 - projects
@@ -357,10 +355,9 @@ When useful, clearly distinguish:
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
-// Resume tailoring
-// Edits the existing resume and does not invent a new one
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Resume template
+// -----------------------------------------------------------------------------
 
 const RESUME_TEMPLATE = `@REDACTED=false
 @NAME=<candidate's real full name from the resume>||Hidden Name
@@ -410,9 +407,9 @@ const RESUME_TEMPLATE = `@REDACTED=false
 `
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Resume PDF generation
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 async function generateResumePdf({
     resume,
@@ -515,9 +512,9 @@ ${RESUME_TEMPLATE}
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
-// Resume markdown -> HTML
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Markdown -> HTML
+// -----------------------------------------------------------------------------
 
 function renderResumeMarkdownToHtml(
     rawText
@@ -529,11 +526,8 @@ function renderResumeMarkdownToHtml(
 
     const variables = {}
 
-    let redacted =
-        false
-
-    let bodyStartIndex =
-        0
+    let redacted = false
+    let bodyStartIndex = 0
 
     for (
         let i = 0;
@@ -763,9 +757,9 @@ ${bodyHtml}
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // HTML -> PDF
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 async function generatePdfFromHtml(
     htmlContent
@@ -773,8 +767,22 @@ async function generatePdfFromHtml(
     let browser
 
     try {
+        const executablePath =
+            process.env.PUPPETEER_EXECUTABLE_PATH ||
+            undefined
+
         browser =
-            await puppeteer.launch()
+            await puppeteer.launch({
+                executablePath,
+
+                headless: true,
+
+                args: [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                ],
+            })
 
         const page =
             await browser.newPage()
@@ -791,6 +799,9 @@ async function generatePdfFromHtml(
             await page.pdf({
                 format:
                     "A4",
+
+                printBackground:
+                    true,
 
                 margin: {
                     top:
@@ -816,9 +827,9 @@ async function generatePdfFromHtml(
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Exports
-// ─────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 module.exports = {
     generateInterviewReport,
