@@ -1,0 +1,440 @@
+name: GenAI Resume CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: genai-resume-production
+  cancel-in-progress: false
+
+
+jobs:
+
+  # =========================================================
+  # BACKEND CI
+  # =========================================================
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Backend
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run backend tests
+        run: npm test
+
+
+  # =========================================================
+  # FRONTEND CI
+  # =========================================================
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Frontend
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: https://placeholder.example.com
+        run: npm run build
+
+
+  # =========================================================
+  # DOCKER CI
+  # =========================================================
+
+  docker-build:
+    name: Backend Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          file: ./Backend/Dockerfile
+          push: false
+          tags: genai-resume-backend:${{ github.sha }}
+
+
+  # =========================================================
+  # DATABASE MIGRATION
+  # Runs only after CI passes and only on main
+  # =========================================================
+
+  migrate-production:
+    name: Production Database Migration
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs:
+      - backend-tests
+      - frontend-build
+      - docker-build
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Backend
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install production dependencies
+        run: npm ci
+
+      - name: Run PostgreSQL migration
+        env:
+          NODE_ENV: production
+
+          DATABASE_URL:
+            ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+          JWT_SECRET:
+            ${{ secrets.JWT_SECRET }}
+
+          GOOGLE_GENAI_API_KEY:
+            ${{ secrets.GOOGLE_GENAI_API_KEY }}
+
+          FRONTEND_ORIGIN:
+            ${{ secrets.PRODUCTION_FRONTEND_URL }}
+
+          GEMINI_MODEL:
+            ${{ vars.GEMINI_MODEL }}
+
+          EMBEDDING_MODEL:
+            ${{ vars.EMBEDDING_MODEL }}
+
+        run: npm run migrate
+
+
+  # =========================================================
+  # BACKEND CD
+  # =========================================================
+
+  deploy-backend:
+    name: Deploy Backend
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs:
+      - migrate-production
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Trigger Render backend deployment
+        env:
+          RENDER_API_KEY:
+            ${{ secrets.RENDER_API_KEY }}
+
+          RENDER_BACKEND_SERVICE_ID:
+            ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+
+          COMMIT_SHA:
+            ${{ github.sha }}
+
+        run: |
+          RESPONSE=$(curl --fail-with-body \
+            --request POST \
+            --url "https://api.render.com/v1/services/${RENDER_BACKEND_SERVICE_ID}/deploys" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitId\":\"${COMMIT_SHA}\",\"clearCache\":\"do_not_clear\"}")
+
+          echo "$RESPONSE"
+
+          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.id')
+
+          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
+            echo "Unable to retrieve backend deployment ID."
+            exit 1
+          fi
+
+          echo "Backend deployment ID: $DEPLOY_ID"
+
+          echo "DEPLOY_ID=$DEPLOY_ID" >> "$GITHUB_ENV"
+
+
+      - name: Wait for backend deployment
+        env:
+          RENDER_API_KEY:
+            ${{ secrets.RENDER_API_KEY }}
+
+          RENDER_BACKEND_SERVICE_ID:
+            ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+
+        run: |
+          echo "Waiting for Render backend deployment..."
+
+          for attempt in {1..60}
+          do
+            RESPONSE=$(curl --silent \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_BACKEND_SERVICE_ID}/deploys/${DEPLOY_ID}")
+
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
+
+            echo "Backend deployment status: $STATUS"
+
+            if [ "$STATUS" = "live" ]; then
+              echo "Backend deployment successful."
+              exit 0
+            fi
+
+            if [ "$STATUS" = "build_failed" ] || \
+               [ "$STATUS" = "update_failed" ] || \
+               [ "$STATUS" = "canceled" ] || \
+               [ "$STATUS" = "deactivated" ]; then
+
+              echo "Backend deployment failed."
+              echo "$RESPONSE"
+
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Backend deployment timed out."
+          exit 1
+
+
+      - name: Backend health check
+        env:
+          BACKEND_URL:
+            ${{ secrets.PRODUCTION_BACKEND_URL }}
+
+        run: |
+          echo "Checking backend health..."
+
+          for attempt in {1..20}
+          do
+            if curl \
+              --fail \
+              --silent \
+              --show-error \
+              "${BACKEND_URL}/health"
+            then
+              echo
+              echo "Backend health check passed."
+              exit 0
+            fi
+
+            echo "Backend not ready yet..."
+            sleep 10
+          done
+
+          echo "Backend health check failed."
+          exit 1
+
+
+  # =========================================================
+  # FRONTEND CD
+  # =========================================================
+
+  deploy-frontend:
+    name: Deploy Frontend
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs:
+      - deploy-backend
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Trigger Render frontend deployment
+        env:
+          RENDER_API_KEY:
+            ${{ secrets.RENDER_API_KEY }}
+
+          RENDER_FRONTEND_SERVICE_ID:
+            ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
+
+          COMMIT_SHA:
+            ${{ github.sha }}
+
+        run: |
+          RESPONSE=$(curl --fail-with-body \
+            --request POST \
+            --url "https://api.render.com/v1/services/${RENDER_FRONTEND_SERVICE_ID}/deploys" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitId\":\"${COMMIT_SHA}\",\"clearCache\":\"do_not_clear\"}")
+
+          echo "$RESPONSE"
+
+          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.id')
+
+          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
+            echo "Unable to retrieve frontend deployment ID."
+            exit 1
+          fi
+
+          echo "Frontend deployment ID: $DEPLOY_ID"
+
+          echo "DEPLOY_ID=$DEPLOY_ID" >> "$GITHUB_ENV"
+
+
+      - name: Wait for frontend deployment
+        env:
+          RENDER_API_KEY:
+            ${{ secrets.RENDER_API_KEY }}
+
+          RENDER_FRONTEND_SERVICE_ID:
+            ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
+
+        run: |
+          echo "Waiting for Render frontend deployment..."
+
+          for attempt in {1..60}
+          do
+            RESPONSE=$(curl --silent \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_FRONTEND_SERVICE_ID}/deploys/${DEPLOY_ID}")
+
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
+
+            echo "Frontend deployment status: $STATUS"
+
+            if [ "$STATUS" = "live" ]; then
+              echo "Frontend deployment successful."
+              exit 0
+            fi
+
+            if [ "$STATUS" = "build_failed" ] || \
+               [ "$STATUS" = "update_failed" ] || \
+               [ "$STATUS" = "canceled" ] || \
+               [ "$STATUS" = "deactivated" ]; then
+
+              echo "Frontend deployment failed."
+              echo "$RESPONSE"
+
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Frontend deployment timed out."
+          exit 1
+
+
+      - name: Frontend availability check
+        env:
+          FRONTEND_URL:
+            ${{ secrets.PRODUCTION_FRONTEND_URL }}
+
+        run: |
+          echo "Checking frontend..."
+
+          for attempt in {1..20}
+          do
+            if curl \
+              --fail \
+              --silent \
+              --show-error \
+              "${FRONTEND_URL}" \
+              > /dev/null
+            then
+              echo "Frontend is reachable."
+              exit 0
+            fi
+
+            echo "Frontend not ready yet..."
+            sleep 10
+          done
+
+          echo "Frontend availability check failed."
+          exit 1
+
+
+  # =========================================================
+  # DEPLOYMENT SUMMARY
+  # =========================================================
+
+  deployment-success:
+    name: Production Deployment Complete
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs:
+      - deploy-backend
+      - deploy-frontend
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Deployment summary
+        run: |
+          echo "==========================================="
+          echo " GenAI Resume deployment completed"
+          echo "==========================================="
+          echo "Commit: ${{ github.sha }}"
+          echo "Backend deployed successfully"
+          echo "Frontend deployed successfully"
+          echo "Production health checks passed"
